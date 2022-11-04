@@ -52,6 +52,35 @@ def register():
 
     return render_template('register.html')
 
+@app.route('/login/', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user_details = request.form
+        username = user_details['username']
+        password = user_details['password']
+        cursor = mysql.connection.cursor()
+        result_value = cursor.execute("SELECT * FROM user WHERE username=%s;", (username,))
+        if result_value > 0:
+            user = cursor.fetchone()
+            if check_password_hash(user['password'], password):
+                session['login'] = True
+                session['first_name'] = user['first_name']
+                session['last_name'] = user['last_name']
+                flash('Welcome ' + session['first_name'] + '! You have been successfully logged in!', 'success')
+                cursor.close()
+                return redirect(url_for('index'))
+            else:
+                cursor.close()
+                flash('Password is incorrect!', 'danger')
+                return redirect(url_for('login'))
+        else:
+            cursor.close()
+            flash('User does not exist!', 'danger')
+            return redirect(url_for('login'))
+
+
+    return render_template('login.html')
+
 @app.route('/write-blog/', methods=['GET', 'POST'])
 def write_blog():
     return render_template('write-blog.html')
