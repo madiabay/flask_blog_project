@@ -1,8 +1,21 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, flash, session, request, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_bootstrap import Bootstrap
+from flask_mysqldb import MySQL
+import yaml, os
 
 app = Flask(__name__)
 Bootstrap(app)
+
+# DB configuration
+db = yaml.safe_load(open('db.yaml'))
+app.config['MYSQL_HOST'] = db['mysql_host']
+app.config['MYSQL_USER'] = db['mysql_user']
+app.config['MYSQL_PASSWORD'] = db['mysql_password']
+app.config['MYSQL_DB'] = db['mysql_db']
+app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.config['SECRET_KEY'] = os.urandom(24)
+mysql = MySQL(app)
 
 @app.route('/')
 def index():
@@ -18,11 +31,26 @@ def blog(id):
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
-    return render_template('register.html')
+    if request.method == 'POST':
+        user_details = request.form
+        if user_details['password'] != user_details['confirmPassword']:
+            flash('Пароли не совпадают! TRY AGAIN!!!', 'danger')
+            return render_template('register.html')
+        cursor = mysql.connection.cursor()
+        tuple_data = (
+            user_details['firstname'],
+            user_details['lastname'],
+            user_details['username'],
+            user_details['email'],
+            generate_password_hash(user_details['password'])
+        ) # it's my tuple
+        cursor.execute('INSERT INTO user(first_name, last_name, username, email, password) VALUES(%s, %s, %s, %s, %s);', tuple_data)
+        cursor.connection.commit()
+        cursor.close()
+        flash('Вы успешно зарегистрировались! Можете залогиниться!!!', 'success')
+        return redirect(url_for('login')) # it's my
 
-@app.route('/login/', methods=['GET', 'POST'])
-def login():
-    return render_template('login.html')
+    return render_template('register.html')
 
 @app.route('/write-blog/', methods=['GET', 'POST'])
 def write_blog():
