@@ -119,19 +119,51 @@ def write_blog():
 
 @app.route('/my-blogs/')
 def my_blogs():
-    return render_template('my-blogs.html')
+    author = session['first_name'] + ' ' + session['last_name']
+    cursor = mysql.connection.cursor()
+    result_value = cursor.execute('SELECT * FROM blog WHERE author=%s;', (author,))
+    if result_value > 0:
+        my_blogs = cursor.fetchall()
+        cursor.close()
+        return render_template('my-blogs.html', blogs=my_blogs)
+    else:
+        return render_template('my-blogs.html', blogs=None)
 
 @app.route('/edit-blog/<int:id>', methods=['GET', 'POST'])
 def edit_blog(id):
-    return render_template('edit-blog.html', blog_id=id)
+    if request.method == 'POST':
+        cursor = mysql.connection.cursor()
+        title = request.form['title']
+        body = request.form['body']
+        cursor.execute('UPDATE blog SET title=%s, body=%s WHERE blog_id=%s;', (title, body, id))
+        cursor.connection.commit()
+        cursor.close()
+        flash('Blog is updated successfully!', 'success')
+        return redirect(f'/blog/{id}')
+    cursor = mysql.connection.cursor()
+    result_value = cursor.execute('SELECT * FROM blog WHERE blog_id=%s;', (id,))
+    if result_value > 0:
+        edit_blog = cursor.fetchone()
+        cursor.close()
+        blog_form = {}
+        blog_form['title'] = edit_blog['title']
+        blog_form['body'] = edit_blog['body']
+        return render_template('edit-blog.html', blog_form=blog_form)
 
-@app.route('/delete-blog/<int:id>', methods=['POST'])
+@app.route('/delete-blog/<int:id>')
 def delete_blog(id):
-    return 'Success deleted!'
+    cursor = mysql.connection.cursor()
+    cursor.execute('DELETE FROM blog WHERE blog_id=%s;', (id,))
+    cursor.connection.commit()
+    cursor.close()
+    flash('Твой блок успешно удален!', 'success')
+    return redirect(url_for('my_blogs'))
 
 @app.route('/logout/')
 def logout():
-    return render_template('logout.html')
+    session.clear()
+    flash('Ты вышел из аккаунта:(', 'info')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)
