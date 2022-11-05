@@ -1,5 +1,14 @@
 {% extends 'base.html' %}
 
 {% block sub_content %}
-    <h1>Index</h1>
+    {% if blogs %}
+        {% for blog in blogs %}
+            <h3><a href="/blog/{{ blog['blog_id'] }}"> {{ blog['title'] }} </a></h3>
+            <h5>Writen by: {{ blog['author'] }}</h5>
+
+            <hr>
+        {% endfor %}
+    {% else %}
+        <h3>Блока нету вообще. Давай иди создавай!</h3>
+    {% endif %}
 {% endblock %}

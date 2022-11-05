@@ -2,10 +2,12 @@ from flask import Flask, render_template, flash, session, request, redirect, url
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_bootstrap import Bootstrap
 from flask_mysqldb import MySQL
+from flask_ckeditor import CKEditor
 import yaml, os
 
 app = Flask(__name__)
 Bootstrap(app)
+CKEditor(app)
 
 # DB configuration
 db = yaml.safe_load(open('db.yaml'))
@@ -19,7 +21,13 @@ mysql = MySQL(app)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    cursor = mysql.connection.cursor()
+    result_value = cursor.execute('SELECT * FROM blog;')
+    if result_value > 0:
+        blogs = cursor.fetchall()
+        cursor.close()
+        return render_template('index.html', blogs=blogs)
+    return render_template('index.html', blogs=None)
 
 @app.route('/about/')
 def about():
@@ -27,7 +35,12 @@ def about():
 
 @app.route('/blog/<int:id>')
 def blog(id):
-    return render_template('blog.html', blog_id=id)
+    cursor = mysql.connection.cursor()
+    result_value = cursor.execute('SELECT * FROM blog WHERE blog_id=%s;', (id,))
+    if result_value > 0:
+        blog = cursor.fetchone()
+        return render_template('blog.html', blog=blog)
+    return flash('Block is not found!', 'warning')
 
 @app.route('/register/', methods=['GET', 'POST'])
 def register():
@@ -83,6 +96,25 @@ def login():
 
 @app.route('/write-blog/', methods=['GET', 'POST'])
 def write_blog():
+    if request.method == 'POST':
+        if 'login' in session:
+            if session['login']:
+                blogpost = request.form
+                title = blogpost['title']
+                body = blogpost['body']
+                if title and body:
+                    author = session['first_name'] + ' ' + session['last_name']
+                    tuple_blog = (title, author, body)
+                    cursor = mysql.connection.cursor()
+                    cursor.execute('INSERT INTO blog(title, author, body) VALUES(%s, %s, %s);', tuple_blog)
+                    cursor.connection.commit()
+                    cursor.close()
+                    flash('Your blogpost is successfully posted!', 'success')
+                    return redirect(url_for('index'))
+                else:
+                    flash('Вы не заполнили title или body!!!', 'warning')
+        else:
+            flash('Дебил сперва надо ЗАЛОГИНИТЬСЯ !!!', 'secondary')
     return render_template('write-blog.html')
 
 @app.route('/my-blogs/')
